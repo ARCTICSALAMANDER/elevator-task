@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="elevator.vcxproj" Id="0841f41d-d5fb-4bfc-b372-714f90ee6457" />
+</Solution>
