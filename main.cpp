@@ -1,7 +1,7 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <string>
-#include <algorithm>
 #include <cstdlib>
 #include <ctime>
 
@@ -140,6 +140,7 @@ private:
 	int people_count;
 	std::vector<Passenger> passengers;
 	Building building;
+	bool going_up = true;
 public:
 	Elevator(std::vector<Floor> floors) {
 		building = Building(floors);
@@ -159,7 +160,15 @@ public:
 		return curr_floor;
 	}
 
+	void set_going_up(bool direction) {
+		going_up = direction;
+	}
+
 	int get_people_count() { return people_count; }
+
+	bool get_going_up(){
+		return going_up;
+	}
 
 	Building get_building() {
 		return building;
@@ -175,7 +184,7 @@ public:
 		return moves;
 	}
 
-	void take_passengers(bool going_up) {
+	void take_passengers() {
 		// берем вектор пассажиров на этом этаже
 		std::vector<Passenger> people_on_floor = building.getFloors()[curr_floor].get_passengers(); 
 
@@ -281,38 +290,40 @@ public:
 		elevator = Elevator(floors);
 	}
 
-	void take_people_on_the_way(int target_floor, bool going_up) { // закончить эту перегрузку, дописать это решение
+	void take_people_on_the_way(int target_floor) { // закончить эту перегрузку, дописать это решение
 		auto passengers_on_elevator = elevator.get_passengers();
 		auto floors = elevator.get_building().getFloors();
 
 		// развозим, забираем людей наверху
-		if (going_up) {
+		if (elevator.get_going_up()) {
 			for (int i = elevator.get_curr_floor(); i < target_floor; i++) {
 				std::vector<Passenger> people_on_floor = floors[i].get_passengers();
-
+				count_moves += elevator.go_to_floor(i);
+				process_floor(i);
 				for (auto& person : people_on_floor) {
 					if (person.target_floor <= target_floor &&
 						person.target_floor != i &&
-						people_count < 3) {
-						count_moves += elevator.go_to_floor(i);
-						process_floor(i);
-						elevator.take_passengers(going_up);
+						elevator.get_people_count() < 3) {
+						
+						elevator.take_passengers();
 					}
+					
 				}
 			}
 		}
 		else {
 			for (int i = elevator.get_curr_floor(); i > target_floor; i--) {
 				std::vector<Passenger> people_on_floor = floors[i].get_passengers();
-
+				count_moves += elevator.go_to_floor(i);
+				process_floor(i);
 				for (auto& person : people_on_floor) {
 					if (person.target_floor >= target_floor &&
 						person.target_floor != i &&
-						people_count < 3) {
-						count_moves += elevator.go_to_floor(i);
-						process_floor(i);
-						elevator.take_passengers(going_up);
+						elevator.get_people_count() < 3) {
+						
+						elevator.take_passengers();
 					}
+					
 				}
 			}
 		}
@@ -338,11 +349,21 @@ public:
 		}
 	}
 
-	int find_the_furtherst_floor(bool going_up) { // найти самый дальний этаж, где люди хотят ехать в нашем направлении
+	void take_input(std::string input) {
+		
+	}
+
+	int find_the_furtherst_floor(bool going_up) { 
+		// найти самый дальний этаж, где люди хотят ехать в нашем направлении
 		// если не нашел такой этаж, возвращает текущий этаж
+		// если в лифте есть пассажиры, учтет это и будет выбирать из людей на этажах и из пассажиров
 		int curr_floor = elevator.get_curr_floor();
 		auto floors = elevator.get_building().getFloors();
 		int furtherst_floor = curr_floor;
+
+		if (elevator.get_passengers().size() > 0) {
+			going_up = elevator.get_passengers()[0].is_going_up;
+		}
 
 		if (going_up) {
 			for (int i = curr_floor + 1; i < floors.size(); i++) {
@@ -351,6 +372,13 @@ public:
 					if (person.is_going_up != going_up) { // человек едет противоположно текущему направлению лифта
 						furtherst_floor = i;
 					}
+				}
+			}
+
+			auto passengers = elevator.get_passengers();
+			for (auto& passenger : passengers) {
+				if (passenger.target_floor > furtherst_floor) {
+					furtherst_floor = passenger.target_floor;
 				}
 			}
 		}
@@ -363,11 +391,29 @@ public:
 					}
 				}
 			}
+
+			auto passengers = elevator.get_passengers();
+			for (auto& passenger : passengers) {
+				if (passenger.target_floor < furtherst_floor) {
+					furtherst_floor = passenger.target_floor;
+				}
+			}
+		}
+
+		if (furtherst_floor == curr_floor) {
+			auto passengers = elevator.get_passengers();
+			for (auto& passenger : passengers) {
+				if (std::abs(furtherst_floor - curr_floor) < 
+					std::abs(passenger.target_floor - curr_floor)) {
+					furtherst_floor = passenger.target_floor;
+				}
+			}
 		}
 
 		return furtherst_floor;
 	}
 
+	
 	// по поводу алгоритма:
 	// лифт будет ездить вверх и вниз до тех пор, пока будут люди, которых нужно куда-то отвезти.
 	// по умолчанию наша конечная точка - это человек на самом верхнем этаже, которому куда-то надо
@@ -378,33 +424,35 @@ public:
 		std::vector<Floor> floors = building.getFloors();
 		count_moves = 0;
 		count_people();
-		bool going_up = true;
 		int target_floor = 0;
 
-		while(building.check_passengers_waiting()){
-			target_floor = find_the_furtherst_floor(going_up);
-
-			if (target_floor != elevator.get_curr_floor()) {
-				if (floors[elevator.get_curr_floor()].passengers_check()) {
-					elevator.take_passengers(going_up);
-				}
-
-				std::cout << "**************************" << '\n';
-				std::cout << "target floor: " << target_floor << '\n';
-				std::cout << "**************************" << '\n';
-
-				floors = building.getFloors();
-				take_people_on_the_way(target_floor, going_up);
-				log_state();
-
-				elevator.go_to_floor(target_floor);
-				process_floor(target_floor);
-				floors = building.getFloors();
-				elevator.take_passengers(!going_up);
-				log_state();
+		while(building.check_passengers_waiting() || elevator.get_passengers().size() != 0){
+			if (elevator.get_passengers().size() != 0) {
+				elevator.set_going_up(elevator.get_passengers()[0].is_going_up);
 			}
 
-			going_up = !going_up;
+			target_floor = find_the_furtherst_floor(elevator.get_going_up());
+			if (target_floor == elevator.get_curr_floor()) {
+				elevator.set_going_up(!elevator.get_going_up());
+				target_floor = find_the_furtherst_floor(elevator.get_going_up());
+			}
+
+			if (target_floor == elevator.get_curr_floor()) {
+				//log_state();
+				return;
+			}
+
+			take_people_on_the_way(target_floor);
+			count_moves += elevator.go_to_floor(target_floor);
+			process_floor(target_floor);
+
+			if (target_floor == elevator.get_building().getFloors().size() - 1 || target_floor == 0) {
+				elevator.set_going_up(!elevator.get_going_up());
+			}
+
+			elevator.take_passengers();
+			building = elevator.get_building();
+			//log_state();
 		}
 	}
 
@@ -440,42 +488,43 @@ public:
 		std::cout << "people count: " << people_count << '\n';
 	}
 
+
+	
+
 };
 
 
-int main() { // дописать до возможного пути
-	//std::vector<Floor> floors;
-	//std::vector<Passenger> input_floor = { {1, true}, {2, true} };
-	//Floor floor = Floor(input_floor, 0);
-	//floors.push_back(floor);
+std::string take_input_from_file() {
+	std::string line;
+	std::ifstream in("input.txt");
+	std::string input;
+	if (in.is_open()) { // файл открыт
+		std::getline(in, line);
+		input += line + '\n';
+	}
 
-	//input_floor = { {0, false}, {2, true} };
-	//floor = Floor(input_floor, 1);
-	//floors.push_back(floor);
+	in.close();
 
-	//input_floor = { {0, false}, {1, false} };
-	//floor = Floor(input_floor, 2);
-	//floors.push_back(floor);
-
-	//Elevator elevator = Elevator(floors);
-	//elevator.test_remove();
-
-	//Solution solution = Solution();
-	//solution.generate_test();
-
-	//solution.log_state();
-	//solution.solve();
-	//solution.log_state();
+	return input;
+}
 
 
+int main() {
 	// ошибочный тест, куда-то пропадают 2 человека
-	std::vector<std::vector<Passenger>> solution_input = { {}, {{0, false}},
-		{{2, false}, {2, false}, {2, false}, {0, false}, {0, false}, {2, false}} };
+	//std::vector<std::vector<Passenger>> solution_input = { {}, {{0, false}},
+	//	{{2, false}, {2, false}, {2, false}, {0, false}, {0, false}, {2, false}} };
 
-	Solution solution = Solution(solution_input);
-	solution.log_state();
-	solution.solve(true);
-	solution.log_state();
+	//Solution solution = Solution(solution_input);
+	Solution solution = Solution();
+
+	for (int i = 0; i < 10000; i++) {
+		solution.generate_test();
+		solution.log_state();
+		solution.solve(true);
+		solution.log_state();
+	}
+
+	std::cout << take_input_from_file();
 
 	return 0;
 }

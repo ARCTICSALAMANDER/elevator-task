@@ -1,0 +1,53 @@
+Floor 6
+target floor 2
+target floor 1
+target floor 4
+target floor 3
+target floor 0
+target floor 3
+target floor 1
+target floor 3
+target floor 2
+Floor 5
+target floor 6
+target floor 1
+target floor 2
+Floor 4
+target floor 2
+target floor 3
+target floor 0
+Floor 3
+target floor 5
+target floor 0
+target floor 6
+target floor 2
+Floor 2
+target floor 1
+target floor 4
+target floor 0
+target floor 5
+target floor 1
+target floor 3
+Floor 1
+target floor 1
+target floor 0
+target floor 1
+target floor 1
+target floor 5
+target floor 0
+target floor 5
+Floor 0
+target floor 6
+target floor 3
+target floor 1
+target floor 6
+target floor 0
+target floor 6
+target floor 4
+target floor 0
+Elevator:
+curr_floor: 0
+passengers :
+
+	total moves : 18
+	people count : 0
