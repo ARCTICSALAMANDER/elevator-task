@@ -4,6 +4,7 @@
 #include <string>
 #include <cstdlib>
 #include <ctime>
+#include <algorithm>
 
 
 // сделать going_up полем elevator
@@ -349,10 +350,6 @@ public:
 		}
 	}
 
-	void take_input(std::string input) {
-		
-	}
-
 	int find_the_furtherst_floor(bool going_up) { 
 		// найти самый дальний этаж, где люди хотят ехать в нашем направлении
 		// если не нашел такой этаж, возвращает текущий этаж
@@ -488,12 +485,68 @@ public:
 		std::cout << "people count: " << people_count << '\n';
 	}
 
+	Floor make_a_floor(std::vector<std::string> lines, int floor_num) { // сделать объект этажа из текста
+		std::vector<Passenger> passengers;
 
+		for (int i = 0; i < lines.size(); i++) {
+			if (lines[i] == "Floor " + std::to_string(floor_num)) {
+				for (int j = i + 1; j < lines.size(); j++) {
+					std::string target_floor_prefix = "        target floor";
+					int target_floor_prefix_size = target_floor_prefix.size();
+
+					if (lines[j].size() > 0 && lines[j].substr(0, target_floor_prefix_size) == target_floor_prefix) {
+						int target_floor = std::stoi(lines[j].substr(target_floor_prefix_size, lines[j].size()));
+						Passenger passenger = {target_floor, true ? target_floor > floor_num : false};
+
+						passengers.push_back(passenger);
+					}
+					else {
+						break;
+					}
+				}
+			}
+		}
+
+		Floor floor = Floor(passengers, floor_num);
+		return floor;
+	}
+
+	void make_test_from_text(std::string input) {
+		std::vector<std::string> lines;
+		std::string str;
+
+		for (auto& i : input) {
+			if (i == '\n') {
+				if (str != "----------------------------") {
+					lines.push_back(str);
+				}
+				str = "";
+			}
+			else {
+				str += i;
+			}
+		}
+
+		std::vector<Floor> floors;
+		if (lines.size() != 0) {
+			int floor_num;
+			for (auto& line : lines) {
+				if (line.size() != 0 && line.substr(0, 5) == "Floor") {
+					floor_num = std::stoi(line.substr(6, line.size()));
+					floors.push_back(make_a_floor(lines, floor_num));
+				}
+			}
+		}
+
+		elevator = Elevator(floors);
+	}
 	
 
 };
 
-
+// дописать функцию забора текста вида вывода в консоли
+// написать функцию которая сделает тест из текста
+// поправить алгоритм
 std::string take_input_from_file() {
 	std::string line;
 	std::ifstream in("input.txt");
@@ -517,14 +570,16 @@ int main() {
 	//Solution solution = Solution(solution_input);
 	Solution solution = Solution();
 
-	for (int i = 0; i < 10000; i++) {
-		solution.generate_test();
-		solution.log_state();
-		solution.solve(true);
-		solution.log_state();
-	}
+	//for (int i = 0; i < 10000; i++) {
+	//	solution.generate_test();
+	//	solution.log_state();
+	//	solution.solve(true);
+	//	solution.log_state();
+	//}
 
-	std::cout << take_input_from_file();
+	//std::cout << take_input_from_file();
 
+	std::string test_string = ""
+	std::cout << "made" << std::endl;
 	return 0;
 }
