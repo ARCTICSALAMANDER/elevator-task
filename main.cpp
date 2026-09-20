@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <ctime>
 #include <algorithm>
+#include <stdexcept>
+#define FILENAME "output.txt"
 
 
 // сделать going_up полем elevator
@@ -245,6 +247,7 @@ private:
 	Elevator elevator;
 	int count_moves = 0;
 	int people_count = 0;
+	std::ofstream out;
 public:
 	Solution(Elevator& elevator_input) {
 		elevator = Elevator(elevator_input);
@@ -260,6 +263,13 @@ public:
 		return elevator;
 	}
 
+	void initialise(){
+		out.open(FILENAME);
+		if (!out.is_open()) {
+			throw std::runtime_error("file cannot be opened");
+		}
+	}
+
 	void count_people() {
 		std::vector<Floor> floors = elevator.get_building().getFloors();
 		for (auto& floor : floors) {
@@ -268,7 +278,6 @@ public:
 	}
 
 	void generate_test() {
-		std::srand(time(nullptr));
 		people_count = 0;
 		int floor_count = 2 + std::rand() % 9;
 		std::vector<Floor> floors;
@@ -416,13 +425,18 @@ public:
 	// по умолчанию наша конечная точка - это человек на самом верхнем этаже, которому куда-то надо
 	// и пока мы едем за этим человеком, можем брать людей по пути, которым надо наверх, на этаж
 	// ниже, где стоит этот человек, и развозить
-	void solve(bool log_moves) {
+	void solve() {
+		if (out.is_open()) {
+			out << "######################" << '\n';
+		}
+
 		Building building = elevator.get_building();
 		std::vector<Floor> floors = building.getFloors();
 		count_moves = 0;
 		count_people();
 		int target_floor = 0;
 
+		log_state(FILENAME, target_floor);
 		while(building.check_passengers_waiting() || elevator.get_passengers().size() != 0){
 			if (elevator.get_passengers().size() != 0) {
 				elevator.set_going_up(elevator.get_passengers()[0].is_going_up);
@@ -435,7 +449,7 @@ public:
 			}
 
 			if (target_floor == elevator.get_curr_floor()) {
-				//log_state();
+				//log_state(FILENAME);
 				return;
 			}
 
@@ -449,7 +463,7 @@ public:
 
 			elevator.take_passengers();
 			building = elevator.get_building();
-			//log_state();
+			log_state(FILENAME, target_floor);
 		}
 	}
 
@@ -462,7 +476,7 @@ public:
 		elevator = Elevator(floors);
 	}
 
-	void log_state() {
+	void log_state_to_console() {
 		std::vector<Floor> floors = elevator.get_building().getFloors();
 		std::cout << "----------------------------" << '\n';
 
@@ -483,6 +497,30 @@ public:
 
 		std::cout << '\n' << "total moves: " << count_moves << '\n';
 		std::cout << "people count: " << people_count << '\n';
+	}
+
+	void log_state(std::string file_name, int target_floor) {
+		if (out.is_open()) {
+			out << "-------------------------------" << '\n';
+			out << "Curr floor " << elevator.get_curr_floor() << '\n';
+			out << "Is going up: " << elevator.get_going_up() << '\n';
+			out << "Floors state:\n";
+			for (auto& floor : elevator.get_building().getFloors()) {
+				out << "Floor " << floor.get_floor_number() << '\n';
+				for (auto& person : floor.get_passengers()) {
+					out << "	target floor: " << person.target_floor << '\n';
+				}
+			}
+			out << '\n';
+			out << "Elevator state:" << '\n';
+			out << "Target floor: " << target_floor << '\n';
+			for (auto& passenger : elevator.get_passengers()) {
+				out << "	target floor: " << passenger.target_floor << '\n';
+			}
+		}
+		else {
+			throw std::runtime_error("cannot reach the file");
+		}
 	}
 
 	Floor make_a_floor(std::vector<std::string> lines, int floor_num) { // сделать объект этажа из текста
@@ -563,23 +601,24 @@ std::string take_input_from_file() {
 
 
 int main() {
+	std::srand(time(nullptr));
 	// ошибочный тест, куда-то пропадают 2 человека
 	//std::vector<std::vector<Passenger>> solution_input = { {}, {{0, false}},
 	//	{{2, false}, {2, false}, {2, false}, {0, false}, {0, false}, {2, false}} };
 
 	//Solution solution = Solution(solution_input);
 	Solution solution = Solution();
+	solution.initialise();
 
-	//for (int i = 0; i < 10000; i++) {
-	//	solution.generate_test();
-	//	solution.log_state();
-	//	solution.solve(true);
-	//	solution.log_state();
-	//}
+	for (int i = 0; i < 10; i++) {
+		solution.generate_test();
+		solution.solve();
+	}
 
 	//std::cout << take_input_from_file();
 
-	std::string test_string = ""
-	std::cout << "made" << std::endl;
+	//std::string test_string = "";
+	//std::cout << "made" << std::endl;
+
 	return 0;
 }
