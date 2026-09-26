@@ -193,8 +193,11 @@ public:
 
 		for (auto& passenger : people_on_floor) {
 
-			if (( passenger.target_floor != curr_floor) &&
-				(passenger.is_going_up == going_up && people_count < 3)) {
+			if (( passenger.target_floor != curr_floor) && people_count < 3) {
+				if (passengers.size() != 0 && passenger.is_going_up != passengers[0].is_going_up) {
+					continue;
+				}
+
 				passengers.push_back(passenger);
 				people_count++;
 
@@ -375,7 +378,7 @@ public:
 			for (int i = curr_floor + 1; i < floors.size(); i++) {
 				auto people_on_floor = floors[i].get_passengers();
 				for (auto& person : people_on_floor) {
-					if (person.is_going_up != going_up) { // человек едет противоположно текущему направлению лифта
+					if (elevator.get_passengers().size() == 0 && person.target_floor != i) {
 						furtherst_floor = i;
 					}
 				}
@@ -392,7 +395,7 @@ public:
 			for (int i = curr_floor - 1; i >= 0; i--) {
 				auto people_on_floor = floors[i].get_passengers();
 				for (auto& person : people_on_floor) {
-					if (person.is_going_up != going_up) {
+					if (person.target_floor != i && elevator.get_passengers().size() == 0) {
 						furtherst_floor = i;
 					}
 				}
@@ -419,15 +422,14 @@ public:
 		return furtherst_floor;
 	}
 
-	
-	// по поводу алгоритма:
-	// лифт будет ездить вверх и вниз до тех пор, пока будут люди, которых нужно куда-то отвезти.
-	// по умолчанию наша конечная точка - это человек на самом верхнем этаже, которому куда-то надо
-	// и пока мы едем за этим человеком, можем брать людей по пути, которым надо наверх, на этаж
-	// ниже, где стоит этот человек, и развозить
-	void solve() {
-		if (out.is_open()) {
-			out << "######################" << '\n';
+	void solve(bool output_to_file) {
+		if (output_to_file) {
+			if (out.is_open()) {
+				out << "######################" << '\n';
+			}
+		}
+		else {
+			log_state_to_console();
 		}
 
 		Building building = elevator.get_building();
@@ -436,7 +438,13 @@ public:
 		count_people();
 		int target_floor = 0;
 
-		log_state(FILENAME, target_floor);
+		if (output_to_file) {
+			log_state(FILENAME, target_floor);
+		}
+		else {
+			log_state_to_console();
+		}
+
 		while(building.check_passengers_waiting() || elevator.get_passengers().size() != 0){
 			if (elevator.get_passengers().size() != 0) {
 				elevator.set_going_up(elevator.get_passengers()[0].is_going_up);
@@ -444,17 +452,19 @@ public:
 
 			target_floor = find_the_furtherst_floor(elevator.get_going_up());
 			if (target_floor == elevator.get_curr_floor()) {
-				elevator.set_going_up(!elevator.get_going_up());
-				target_floor = find_the_furtherst_floor(elevator.get_going_up());
-			}
+				if (!building.getFloors()[target_floor].passengers_check()) {
+					elevator.set_going_up(!elevator.get_going_up());
+					target_floor = find_the_furtherst_floor(elevator.get_going_up());
+				}
 
-			if (target_floor == elevator.get_curr_floor()) {
-				//log_state(FILENAME);
-				return;
+				if (target_floor == elevator.get_curr_floor()) {
+					//log_state(FILENAME);
+					return;
+				}
 			}
 
 			take_people_on_the_way(target_floor);
-			count_moves += elevator.go_to_floor(target_floor);
+			elevator.go_to_floor(target_floor);
 			process_floor(target_floor);
 
 			if (target_floor == elevator.get_building().getFloors().size() - 1 || target_floor == 0) {
@@ -463,7 +473,12 @@ public:
 
 			elevator.take_passengers();
 			building = elevator.get_building();
-			log_state(FILENAME, target_floor);
+			if (output_to_file) {
+				log_state(FILENAME, target_floor);
+			}
+			else {
+				log_state_to_console();
+			}
 		}
 	}
 
@@ -489,6 +504,7 @@ public:
 
 		std::cout << "Elevator:" << '\n';
 		std::cout << "curr_floor: " << elevator.get_curr_floor() << '\n';
+		std::cout << "target_floor: " << elevator.get_curr_floor() << '\n';
 		std::cout << "passengers:" << '\n';
 		auto passengers = elevator.get_passengers();
 		for (auto& passenger : passengers) {
@@ -525,11 +541,14 @@ public:
 
 	Floor make_a_floor(std::vector<std::string> lines, int floor_num) { // сделать объект этажа из текста
 		std::vector<Passenger> passengers;
+		const std::string floor_prefix = "Floor ";
 
 		for (int i = 0; i < lines.size(); i++) {
 			if (lines[i] == "Floor " + std::to_string(floor_num)) {
 				for (int j = i + 1; j < lines.size(); j++) {
-					std::string target_floor_prefix = "        target floor";
+					if (lines[j].substr(0, floor_prefix.size())== "Floor ") break;
+
+					std::string target_floor_prefix = "target floor ";
 					int target_floor_prefix_size = target_floor_prefix.size();
 
 					if (lines[j].size() > 0 && lines[j].substr(0, target_floor_prefix_size) == target_floor_prefix) {
@@ -556,12 +575,16 @@ public:
 		for (auto& i : input) {
 			if (i == '\n') {
 				if (str != "----------------------------") {
-					lines.push_back(str);
+					if (str != "") {
+						lines.push_back(str);
+					}
 				}
 				str = "";
 			}
 			else {
-				str += i;
+				if (i != '\t') {
+					str += i;
+				}
 			}
 		}
 
@@ -576,9 +599,9 @@ public:
 			}
 		}
 
+		std::reverse(floors.begin(), floors.end());
 		elevator = Elevator(floors);
 	}
-	
 
 };
 
@@ -602,23 +625,17 @@ std::string take_input_from_file() {
 
 int main() {
 	std::srand(time(nullptr));
-	// ошибочный тест, куда-то пропадают 2 человека
-	//std::vector<std::vector<Passenger>> solution_input = { {}, {{0, false}},
-	//	{{2, false}, {2, false}, {2, false}, {0, false}, {0, false}, {2, false}} };
 
-	//Solution solution = Solution(solution_input);
 	Solution solution = Solution();
 	solution.initialise();
 
+
 	for (int i = 0; i < 10; i++) {
+		std::cout << "*********************TEST " << i << "*************************" << '\n';
 		solution.generate_test();
-		solution.solve();
+		solution.solve(false);
 	}
-
-	//std::cout << take_input_from_file();
-
-	//std::string test_string = "";
-	//std::cout << "made" << std::endl;
 
 	return 0;
 }
+
